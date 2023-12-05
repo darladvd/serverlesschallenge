@@ -64,28 +64,31 @@ def get_one_loyalty_card(event, context):
     }
 
     try:
-        # Extract card number from the event or query parameters
-        card_number = event["headers"]["card_number"]
+        # Extract card number from the event headers
+        card_number = event["headers"].get("card_number")
 
-        table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+        if card_number:
+            # If card number is present, query DynamoDB to get the specific loyalty card
+            table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+            result = DynamodbGateway.query_by_partition_key(
+                table_name=table_name,
+                partition_key_name="card_number",
+                partition_key_query_value=card_number
+            )
 
-        # Query DynamoDB to get the loyalty card with the specified card number
-        result = DynamodbGateway.query_by_partition_key(
-            table_name=table_name,
-            partition_key_name="card_number",
-            partition_key_query_value=card_number
-        )
-
-        if result["items"]:
-            response = {
-                "statusCode": 200,
-                "body": json.dumps({"status": "success", "item": result["items"][0]})
-            }
+            if result["items"]:
+                response = {
+                    "statusCode": 200,
+                    "body": json.dumps({"status": "success", "item": result["items"][0]})
+                }
+            else:
+                response = {
+                    "statusCode": 404,
+                    "body": json.dumps({"status": "error", "message": "Loyalty card not found"})
+                }
         else:
-            response = {
-                "statusCode": 404,
-                "body": json.dumps({"status": "error", "message": "Loyalty card not found"})
-            }
+            # If no card number is provided, return all loyalty cards
+            return get_all_loyalty_card(event, context)
 
     except Exception as e:
         response = {
