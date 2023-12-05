@@ -10,24 +10,29 @@ def create_loyalty_card(event, context):
 
     print(event)
 
-    letters = string.ascii_lowercase
-    idVar = ''.join(random.choice(letters) for i in range(16))
-
-    card = {
-        "card_number": idVar,
-        "customer_name": body["name"],
-        "email": body["email"]
-    }
-
     table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+
+    loyalty_cards = []
+
+    for person in body:
+        letters = string.ascii_lowercase
+        id_var = ''.join(random.choice(letters) for _ in range(16))
+
+        card = {
+            "card_number": id_var,
+            "customer_name": person.get("name"),
+            "email": person.get("email")
+        }
+
+        loyalty_cards.append(card)
 
     DynamodbGateway.upsert(
         table_name=table_name,
-        mapping_data=[card],
+        mapping_data=loyalty_cards,
         primary_keys=["card_number"]
     )
 
-    response = {"statusCode": 200, "body": json.dumps(card)}
+    response = {"statusCode": 200, "body": json.dumps(loyalty_cards)}
 
     return response
 
