@@ -14,8 +14,33 @@ def create_loyalty_card(event, context):
 
     loyalty_cards = []
 
-    for person in body:
-        email = person.get("email")
+    # Check if body is a list
+    if isinstance(body, list):
+        for person in body:
+            email = person.get("email")
+
+            # Check if the email already exists in the DynamoDB table
+            if email_exists(table_name, email):
+                response = {
+                    "statusCode": 400,
+                    "body": json.dumps({"status": "error", "message": "Email already used"})
+                }
+                return response
+
+            # Generate a unique card number
+            letters = string.ascii_lowercase
+            id_var = ''.join(random.choice(letters) for _ in range(16))
+
+            card = {
+                "card_number": id_var,
+                "customer_name": person.get("name"),
+                "email": person.get("email")
+            }
+
+            loyalty_cards.append(card)
+    else:
+        # If body is not a list, assume it's a single entry
+        email = body.get("email")
 
         # Check if the email already exists in the DynamoDB table
         if email_exists(table_name, email):
@@ -24,15 +49,15 @@ def create_loyalty_card(event, context):
                 "body": json.dumps({"status": "error", "message": "Email already used"})
             }
             return response
-        
+
         # Generate a unique card number
         letters = string.ascii_lowercase
         id_var = ''.join(random.choice(letters) for _ in range(16))
 
         card = {
             "card_number": id_var,
-            "customer_name": person.get("name"),
-            "email": person.get("email")
+            "customer_name": body.get("name"),
+            "email": body.get("email")
         }
 
         loyalty_cards.append(card)
