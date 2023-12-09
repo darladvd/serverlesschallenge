@@ -2,8 +2,14 @@ import json
 import string
 import random
 import os
+import boto3
+import urllib.parse
 
 from dynamodb_gateway import DynamodbGateway
+
+s3 = boto3.client('s3')
+sqs = boto3.client('sqs')
+queue_url = "https://sqs.us-east-1.amazonaws.com/874957933250/challenge1-dev-jobs"
 
 def create_loyalty_card(event, context):
     body = json.loads(event["body"])
@@ -145,3 +151,41 @@ def get_one_loyalty_card(event, context):
         }
 
     return response
+
+#aws lambda trigger when theres new s3 file. reads line by line
+def prepare_sqs_job(event, content):
+    bucket_name = os.getenv("S3_BUCKETNAME")
+
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+    try:
+        response = s3.get_object(Bucket=bucket, Key=key)
+        print("CONTENT TYPE: " + response['ContentType'])
+        return response['ContentType']
+    except Exception as e:
+        print(e)
+        print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(key, bucket))
+        raise e
+
+    # # Get the object from the event and show its content type
+    # bucket = event['Records'][0]['s3']['bucket']['name']
+    # key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+    # try:
+    #     # Download the file from S3
+    #     response = s3.get_object(Bucket=bucket, Key=key)
+        
+    #     # Read the file contents line by line
+    #     file_content = response['Body'].read().decode('utf-8')
+    #     lines = file_content.split('\n')
+        
+    #     # Process each line
+    #     for line in lines:
+    #         # Do something with each line (e.g., print it)
+    #         print(line)
+            
+    #     # You can also return the lines or any other information as needed
+    #     return {'lines': lines}
+        
+    # except Exception as e:
+    #     print(e)
+    #     print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(key, bucket))

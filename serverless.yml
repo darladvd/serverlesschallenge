@@ -9,8 +9,15 @@ provider:
     - Effect: "Allow"
       Action: "dynamodb:*"
       Resource: "*"
+    - Effect: "Allow"
+      Action: "apigateway:*"
+      Resource: "*"
+    - Effect: "Allow"
+      Action: "s3:*"
+      Resource: "*"
   environment:
-    DYNAMODB_CARDS_TABLE_NAME: challenge1 #table name
+    DYNAMODB_CARDS_TABLE_NAME: challenge1 
+    S3_BUCKETNAME: serverlesschallenge-darla
 
 functions:
   createLoyaltyCard:
@@ -31,6 +38,27 @@ functions:
       - http:
           path: /challenge1
           method: get
+  prepareSQSjob:
+    handler: handler.prepare_sqs_job
+    events:
+      - s3:
+          bucket: serverlesschallenge-darla
+          event: s3:ObjectCreated:Put
+          existing: true 
+          rules:
+            - suffix: .csv
+  # runSQSjob:
+  #   handler: handler.run_sqs_job
+  #   events:
+  #     - httpApi:
+  #         path: /challenge1
+  #         method: post
+  #     - s3:
+  #         bucket: ${construct:bucket.bucketName}
+  #         existing: true
+  #   environment:
+  #     QUEUE_URL: ${construct:jobs.queueUrl}
+  #     STORAGE_BUCKET: ${construct:bucket.bucketName}
   
 
 #decrease size of deployment package
@@ -62,3 +90,6 @@ resources:
                   KeyType: HASH
               Projection:
                 ProjectionType: ALL
+
+plugins:
+  - serverless-python-requirements
