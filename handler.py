@@ -4,12 +4,14 @@ import random
 import os
 import boto3
 import urllib.parse
+import csv
+from io import StringIO
 
 from dynamodb_gateway import DynamodbGateway
 
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
-queue_url = "https://sqs.us-east-1.amazonaws.com/874957933250/challenge1-dev-jobs"
+queue_url = os.getenv('QUEUE_URL')
 
 def create_loyalty_card(event, context):
     body = json.loads(event["body"])
@@ -158,23 +160,53 @@ def prepare_sqs_job(event, content):
 
     # Get the object from the event and show its content type
     bucket = event['Records'][0]['s3']['bucket']['name']
-    key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+    file_key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
     try:
         # Download the file from S3
-        response = s3.get_object(Bucket=bucket, Key=key)
+        response = s3.get_object(Bucket=bucket, Key=file_key)
         
         # Read the file contents line by line
         file_content = response['Body'].read().decode('utf-8')
-        lines = file_content.split('\n')
-        
-        # Process each line
-        for line in lines:
-            # Do something with each line (e.g., print it)
-            print(line)
+        print(f"Object uploaded: s3://{bucket}/{file_key}")
+
+        rows = []
+        csv_reader = csv.reader(StringIO(file_content))
+
+        # Process each row in the CSV
+        for i, row in enumerate(csv_reader):
+            if i == 0:
+                continue
+            rows.append(row)
             
-        # You can also return the lines or any other information as needed
-        return {'lines': lines}
-        
+        # Print the processed rows
+        print("Processed rows:")
+        for row in rows:
+            print(row)
+
+        # # Send each row as a message to SQS
+        # try:
+        #     message_attrs = {
+        #         'AttributeName': {'StringValue': 'AttributeValue', 'DataType': 'String'}
+        #     }
+        #     for row in rows:
+        #         print(row)
+        #         sqs.send_message(
+        #             QueueUrl=queue_url,
+        #             MessageBody=row[0],
+        #             MessageAttributes=message_attrs,
+        #         )
+
+        #     message = 'Message accepted!'
+        # except Exception as e:
+        #     print('Sending message to SQS queue failed!')
+        #     message = str(e)
+        #     status_code = 500
+
+        # return {'statusCode': status_code, 'body': json.dumps({'message': message})}
+
     except Exception as e:
         print(e)
-        print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(key, bucket))
+        print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(file_key, bucket))
+        status_code = 500
+        message = str(e)
+        return {'statusCode': status_code, 'body': json.dumps({'message': message})}

@@ -18,6 +18,7 @@ provider:
   environment:
     DYNAMODB_CARDS_TABLE_NAME: challenge1 
     S3_BUCKETNAME: serverlesschallenge-darla
+    QUEUE_URL: https://sqs.us-east-1.amazonaws.com/874957933250/challenge1-dev-jobs
 
 functions:
   createLoyaltyCard:
