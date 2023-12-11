@@ -14,4 +14,7 @@ phases:
       - pip --version
   build:
     commands:
+      - serverless plugin install -n serverless-python-requirements
+      - npm install serverless-offline --save-dev
       - serverless deploy --region us-east-1
+
