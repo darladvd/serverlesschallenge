@@ -1,12 +1,11 @@
 import json
 import string
-import random
 import os
 import boto3
 import urllib.parse
 import csv
-import sys
 from io import StringIO
+from decimal import Decimal
 
 from dynamodb_gateway import DynamodbGateway
 
@@ -14,6 +13,12 @@ s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
 queue_url = os.getenv('QUEUE_URL')
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
+    
 def create_loyalty_card(event, context):
     try:
         if isinstance(event["body"], str):
@@ -87,7 +92,7 @@ def get_all_loyalty_card(event, context):
     
     return_body["status"] = "success"
 
-    response = {"statusCode": 200, "body": json.dumps(return_body)}
+    response = {"statusCode": 200, "body": json.dumps(return_body, cls=DecimalEncoder)}
 
     return response
 
