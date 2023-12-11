@@ -15,10 +15,13 @@ provider:
     - Effect: "Allow"
       Action: "s3:*"
       Resource: "*"
+    - Effect: "Allow"
+      Action: "sqs:*"
+      Resource: "*"
   environment:
     DYNAMODB_CARDS_TABLE_NAME: challenge1 
     S3_BUCKETNAME: serverlesschallenge-darla
-    QUEUE_URL: https://sqs.us-east-1.amazonaws.com/874957933250/challenge1-dev-jobs
+    QUEUE_URL: https://sqs.us-east-1.amazonaws.com/874957933250/serverlesschallenge-darla
 
 functions:
   createLoyaltyCard:
@@ -39,45 +42,35 @@ functions:
       - http:
           path: /challenge1
           method: get
-  prepareSQSjob:
+  prepareSQSjobS3:
     handler: handler.prepare_sqs_job
     events:
       - s3:
           bucket: serverlesschallenge-darla
           event: s3:ObjectCreated:Put
-          existing: true 
+          existing: true
           rules:
             - suffix: .csv
-  # runSQSjob:
-  #   handler: handler.run_sqs_job
-  #   events:
-  #     - httpApi:
-  #         path: /challenge1
-  #         method: post
-  #     - s3:
-  #         bucket: ${construct:bucket.bucketName}
-  #         existing: true
-  #   environment:
-  #     QUEUE_URL: ${construct:jobs.queueUrl}
-  #     STORAGE_BUCKET: ${construct:bucket.bucketName}
-  
+  prepareSQSjobSQS:
+    handler: handler.process_sqs_job
+    events:
+      - sqs:
+          arn: arn:aws:sqs:us-east-1:874957933250:serverlesschallenge-darla
 
-#decrease size of deployment package
 package:
   exclude:
     - venv/**
     - node_modules/**
 
-#cloud formation code for deploying dynamodb
 resources:
   Resources:
     LoyaltyCardDynamodbTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
-          - AttributeName: card_number #primary key
+          - AttributeName: card_number
             AttributeType: S
-          - AttributeName: email #gsi
+          - AttributeName: email
             AttributeType: S
         KeySchema:
           - AttributeName: card_number
