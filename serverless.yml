@@ -34,13 +34,13 @@ functions:
     handler: handler.get_all_loyalty_card
     events:
       - http:
-          path: /challenge1
+          path: /challenge1/all
           method: get
   getOneLoyaltyCard:
     handler: handler.get_one_loyalty_card
     events:
       - http:
-          path: /challenge1
+          path: /challenge1/one
           method: get
   prepareSQSjobS3:
     handler: handler.prepare_sqs_job
@@ -87,3 +87,4 @@ resources:
 
 plugins:
   - serverless-python-requirements
+  - serverless-offline
