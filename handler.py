@@ -15,16 +15,25 @@ sqs = boto3.client('sqs')
 queue_url = os.getenv('QUEUE_URL')
 
 def create_loyalty_card(event, context):
-    body = json.loads(event["body"])
+    try:
+        if isinstance(event["body"], str):
+            body = json.loads(event["body"])
+        elif isinstance(event["body"], list):
+            # If body is already a list, use it directly
+            body = event["body"]
+        else:
+            print(f"Unexpected body type: {type(event['body'])}")
+            raise ValueError("Invalid request body: Expected a JSON string or list")
 
-    print(event)
+        print(f"Received event body: {json.dumps(body)}")
 
-    table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+        table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+        loyalty_cards = []
 
-    loyalty_cards = []
+        # Check if body is a list
+        if not isinstance(body, list):
+            raise ValueError("Invalid request body: Expected a list of loyalty cards")
 
-    # Check if body is a list
-    if isinstance(body, list):
         for person in body:
             email = person.get("email")
 
@@ -36,49 +45,30 @@ def create_loyalty_card(event, context):
                 }
                 return response
 
-            # Generate a unique card number
-            letters = string.ascii_lowercase
-            id_var = ''.join(random.choice(letters) for _ in range(16))
-
             card = {
-                "card_number": id_var,
-                "first_name": person.get("name"),
-                "email": person.get("email")
+                "card_number": person.get("card_number"),
+                "first_name": person.get("first_name"),
+                "last_name": person.get("last_name"),
+                "email": person.get("email"),
+                "points": person.get("points"),
             }
 
             loyalty_cards.append(card)
-    else:
-        # If body is not a list, assume it's a single entry
-        email = body.get("email")
 
-        # Check if the email already exists in the DynamoDB table
-        if email_exists(table_name, email):
-            response = {
-                "statusCode": 400,
-                "body": json.dumps({"status": "error", "message": "Email already used"})
-            }
-            return response
+        DynamodbGateway.upsert(
+            table_name=table_name,
+            mapping_data=loyalty_cards,
+            primary_keys=["card_number"]
+        )
 
-        # Generate a unique card number
-        letters = string.ascii_lowercase
-        id_var = ''.join(random.choice(letters) for _ in range(16))
+        response = {"statusCode": 200, "body": json.dumps({"status": "success", "loyalty_cards": loyalty_cards})}
 
-        card = {
-            "card_number": id_var,
-            "first_name": body.get("name"),
-            "email": body.get("email")
-        }
-
-        loyalty_cards.append(card)
-
-    DynamodbGateway.upsert(
-        table_name=table_name,
-        mapping_data=loyalty_cards,
-        primary_keys=["card_number"]
-    )
-
-    response = {"statusCode": 200, "body": json.dumps(loyalty_cards)}
-
+    except ValueError as ve:
+        response = {"statusCode": 400, "body": json.dumps({"status": "error", "message": str(ve)})}
+    
+    except Exception as e:
+        response = {"statusCode": 500, "body": json.dumps({"status": "error", "message": str(e)})}
+    
     return response
     
 

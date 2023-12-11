@@ -49,8 +49,8 @@ functions:
           bucket: serverlesschallenge-darla
           event: s3:ObjectCreated:Put
           existing: true
-          rules:
-            - suffix: .csv
+          # rules:
+          #   - suffix: .csv
   prepareSQSjobSQS:
     handler: handler.process_sqs_job
     events:

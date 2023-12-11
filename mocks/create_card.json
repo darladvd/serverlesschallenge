@@ -1,0 +1,11 @@
+{
+  "body": [
+    {
+      "card_number": "09876533",
+      "first_name": "Inna",
+      "last_name": "Balaba",
+      "email": "innabalaba@example.com",
+      "points": 100
+    }
+  ]
+}
