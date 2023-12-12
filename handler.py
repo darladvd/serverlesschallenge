@@ -1,28 +1,25 @@
 import json
-import string
 import os
 import boto3
 import urllib.parse
 import csv
 from io import StringIO
-from decimal import Decimal
 
 from dynamodb_gateway import DynamodbGateway
 
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
 queue_url = os.getenv('QUEUE_URL')
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Decimal):
-            return str(o)
-        return super(DecimalEncoder, self).default(o)
     
 def create_loyalty_card(event, context):
     try:
         if isinstance(event["body"], str):
+            # Try to load the body as JSON
             body = json.loads(event["body"])
+            
+            # If it's a single entry, convert it to a list
+            if isinstance(body, dict):
+                body = [body]
         elif isinstance(event["body"], list):
             # If body is already a list, use it directly
             body = event["body"]
@@ -55,7 +52,7 @@ def create_loyalty_card(event, context):
                 "first_name": person.get("first_name"),
                 "last_name": person.get("last_name"),
                 "email": person.get("email"),
-                "points": person.get("points"),
+                "points": int(person.get("points", 0)),
             }
 
             loyalty_cards.append(card)
@@ -92,7 +89,7 @@ def get_all_loyalty_card(event, context):
     
     return_body["status"] = "success"
 
-    response = {"statusCode": 200, "body": json.dumps(return_body, cls=DecimalEncoder)}
+    response = {"statusCode": 200, "body": json.dumps(return_body)}
 
     return response
 
@@ -167,7 +164,7 @@ def prepare_sqs_job(event, context):
                 "first_name": row[1],
                 "last_name": row[2],
                 "email": row[3],
-                "points": row[4]
+                "points": int(row[4])
             }
 
             try:

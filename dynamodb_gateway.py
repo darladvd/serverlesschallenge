@@ -1,6 +1,7 @@
 import boto3
 import itertools
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
+from decimal import Decimal
 
 class DynamodbGateway:
     @classmethod
@@ -10,7 +11,13 @@ class DynamodbGateway:
         args = [iter(iterable)] * n
         return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-    
+    @classmethod
+    def convert_decimal_to_int(cls, item):
+        for key, value in item.items():
+            if isinstance(value, Decimal):
+                item[key] = int(value)
+        return item
+
     @classmethod
     def upsert(cls, table_name, mapping_data, primary_keys):
         print(f"Inserting into table {table_name}")
@@ -43,6 +50,9 @@ class DynamodbGateway:
         else:
             response = table.scan(ExclusiveStartKey=last_evaluated_key)
             items.extend(response.get('Items'))
+
+        for item in items:
+            cls.convert_decimal_to_int(item)
 
         if 'Items' not in response:
             raise Exception(f"There is no objects for this object on table {table_name}")
@@ -89,6 +99,9 @@ class DynamodbGateway:
 
         items.extend(resp.get('Items'))
 
+        for item in items:
+            cls.convert_decimal_to_int(item)
+
         print("==============================================")
         print("ITEMS FROM THE RESPONSE -- BEFORE THE LOOP")
         print(resp)
@@ -100,20 +113,9 @@ class DynamodbGateway:
             "last_evaluated_key": resp.get('LastEvaluatedKey')
         }
     
-    """
-    DynamodbMappingGateway.query_index_by_partition_key(
-        index_name,
-        table_name,
-        partition_key_name,
-        partition_key_query_value
-    )
-    """
     @classmethod
     def query_index_by_partition_key(cls, index_name, table_name, partition_key_name, partition_key_query_value):
         client = boto3.client('dynamodb')
-
-        print(f"QUERYING {partition_key_name} == '{partition_key_query_value}'")
-
         resp = client.query(
             TableName=table_name,
             IndexName=index_name,
@@ -123,4 +125,9 @@ class DynamodbGateway:
             }
         )
 
-        return resp.get('Items')
+        items = resp.get('Items')
+
+        for item in items:
+            cls.convert_decimal_to_int(item)
+
+        return items
