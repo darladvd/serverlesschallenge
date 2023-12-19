@@ -10,7 +10,17 @@ from dynamodb_gateway import DynamodbGateway
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
 queue_url = os.getenv('QUEUE_URL')
-    
+
+
+def response_headers():
+    return {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, card_number',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+    }
+
+
 def create_loyalty_card(event, context):
     try:
         if isinstance(event["body"], str):
@@ -64,46 +74,48 @@ def create_loyalty_card(event, context):
             primary_keys=["card_number"]
         )
 
-        response = {"statusCode": 200, "body": json.dumps({"status": "success", "loyalty_cards": loyalty_cards})}
+        response = {"statusCode": 200,"headers": response_headers(),"body": json.dumps({"status": "success", "loyalty_cards": loyalty_cards})}
 
     except ValueError as ve:
-        response = {"statusCode": 400, "body": json.dumps({"status": "error", "message": str(ve)})}
+        response = {"statusCode": 400, "headers": response_headers(), "body": json.dumps({"status": "error", "message": str(ve)})}
     
     except Exception as e:
-        response = {"statusCode": 500, "body": json.dumps({"status": "error", "message": str(e)})}
+        response = {"statusCode": 500, "headers": response_headers(), "body": json.dumps({"status": "error", "message": str(e)})}
     
     return response
     
 
 def get_all_loyalty_card(event, context):
-    body = {
-        "message": "I'm getting all loyalty cards",
-        "input": event,
-    }
+    try:
+        table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
 
-    table_name = os.getenv("DYNAMODB_CARDS_TABLE_NAME")
+        return_body = {}
+        return_body["items"] = DynamodbGateway.scan_table(
+            table_name=table_name
+        )
+        
+        return_body["status"] = "success"
 
-    return_body = {}
-    return_body["items"] = DynamodbGateway.scan_table(
-        table_name=table_name
-    )
-    
-    return_body["status"] = "success"
+        response = {
+            "statusCode": 200,
+            "headers": response_headers(),
+            "body": json.dumps(return_body)
+        }
 
-    response = {"statusCode": 200, "body": json.dumps(return_body)}
+    except Exception as e:
+        response = {
+            "statusCode": 500,
+            "headers": response_headers(),
+            "body": json.dumps({"status": "error", "message": str(e)})
+        }
 
     return response
 
 
 def get_one_loyalty_card(event, context):
-    body = {
-        "message": "I'm getting a loyalty card",
-        "input": event,
-    }
-
     try:
-        # Extract card number from the event headers
-        card_number = event["headers"].get("card_number")
+        # Extract card number from the path parameters
+        card_number = event["pathParameters"].get("cardNumber")
 
         if card_number:
             # If card number is present, query DynamoDB to get the specific loyalty card
@@ -117,11 +129,13 @@ def get_one_loyalty_card(event, context):
             if result["items"]:
                 response = {
                     "statusCode": 200,
+                    "headers": response_headers(),
                     "body": json.dumps({"status": "success", "item": result["items"][0]})
                 }
             else:
                 response = {
                     "statusCode": 404,
+                    "headers": response_headers(),
                     "body": json.dumps({"status": "error", "message": "Loyalty card not found"})
                 }
         else:
@@ -131,10 +145,12 @@ def get_one_loyalty_card(event, context):
     except Exception as e:
         response = {
             "statusCode": 500,
+            "headers": response_headers(),
             "body": json.dumps({"status": "error", "message": str(e)})
         }
 
     return response
+
 
 #aws lambda trigger when theres new s3 file. reads line by line
 def prepare_sqs_job(event, context):
@@ -189,6 +205,7 @@ def prepare_sqs_job(event, context):
 
     return response
 
+
 def process_sqs_job(event, context):
     try:
         print(f"Received SQS event: {json.dumps(event)}")
@@ -240,6 +257,7 @@ def process_sqs_job(event, context):
         response = {"statusCode": 500, "body": json.dumps({"status": "error", "message": str(e)})}
 
     return response
+
 
 def email_exists(table_name, email):
     # Check if the email already exists in the DynamoDB table using GSI

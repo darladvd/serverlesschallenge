@@ -42,7 +42,7 @@ functions:
     handler: handler.get_one_loyalty_card
     events:
       - http:
-          path: /challenge1/one
+          path: /challenge1/{cardNumber}
           method: get
           cors: true
   prepareSQSjobS3:
@@ -85,6 +85,7 @@ resources:
                   KeyType: HASH
               Projection:
                 ProjectionType: ALL
+
 
 plugins:
   - serverless-python-requirements
