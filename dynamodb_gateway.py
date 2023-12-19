@@ -1,16 +1,8 @@
 import boto3
-import itertools
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
 class DynamodbGateway:
-    @classmethod
-    def grouper(cls, iterable, n, fillvalue=None):
-        "Collect data into fixed-length chunks or blocks"
-        # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-        args = [iter(iterable)] * n
-        return itertools.zip_longest(*args, fillvalue=fillvalue)
-
     @classmethod
     def convert_decimal_to_int(cls, item):
         for key, value in item.items():
@@ -24,45 +16,33 @@ class DynamodbGateway:
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(table_name)
 
-        for group in cls.grouper(mapping_data, 100):
-            batch_entries = list(filter(None.__ne__, group))
-
+        for batch_entries in cls.batch_data(mapping_data, batch_size=5):
             print("=====")
-            print("WRITING THIS BATCH in batches of 100")
+            print("WRITING THIS BATCH in batches of 5")
             print(batch_entries)
             print("=====")
 
             with table.batch_writer(overwrite_by_pkeys=primary_keys) as batch:
                 for entry in batch_entries:
-                    batch.put_item(
-                        Item = entry
-                    )
+                    batch.put_item(Item=entry)
 
     @classmethod
-    def scan_table(cls, table_name, last_evaluated_key=None):
+    def batch_data(cls, data, batch_size):
+        """Generator function to yield batches of data."""
+        for i in range(0, len(data), batch_size):
+            yield data[i:i + batch_size]
+
+    @classmethod
+    def scan_table(cls, table_name, page_size=5, last_evaluated_key=None):
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(table_name)
         items = []
 
-        if last_evaluated_key == None:
-            response = table.scan()
-            items.extend(response.get('Items'))
-        else:
-            response = table.scan(ExclusiveStartKey=last_evaluated_key)
-            items.extend(response.get('Items'))
+        response = cls._scan_table_page(table, page_size, last_evaluated_key)
+        items.extend(response.get('Items'))
 
-        for item in items:
-            cls.convert_decimal_to_int(item)
-
-        if 'Items' not in response:
-            raise Exception(f"There is no objects for this object on table {table_name}")
-
-        if 'LastEvaluatedKey' not in response:
-            response["LastEvaluatedKey"] = None
-
-        while ("LastEvaluatedKey" in response) and (response["LastEvaluatedKey"] != None):
-            response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
-
+        while len(items) < page_size and "LastEvaluatedKey" in response and response["LastEvaluatedKey"] is not None:
+            response = cls._scan_table_page(table, page_size, response["LastEvaluatedKey"])
             items.extend(response.get('Items'))
 
             print("==============================================")
@@ -70,11 +50,23 @@ class DynamodbGateway:
             print(response)
             print(f"item_count: {len(items)}, LastEvaluatedKey: {response.get('LastEvaluatedKey')}")
 
-
         return {
             "items": items,
-            "last_evaluated_key": response["LastEvaluatedKey"]
+            "last_evaluated_key": response.get('LastEvaluatedKey')
         }
+
+    @classmethod
+    def _scan_table_page(cls, table, page_size, last_evaluated_key):
+        scan_params = {"Limit": page_size}
+        if last_evaluated_key is not None:
+            scan_params["ExclusiveStartKey"] = last_evaluated_key
+
+        response = table.scan(**scan_params)
+
+        for item in response.get('Items'):
+            cls.convert_decimal_to_int(item)
+
+        return response
 
     @classmethod
     def query_by_partition_key(cls, table_name, partition_key_name, partition_key_query_value, attributes="ALL_ATTRIBUTES"):
