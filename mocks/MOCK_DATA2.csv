@@ -1,6 +1,6 @@
-card_number,first_name,last_name,email,points
-7749321056,Elayne,Bowry,ebowry5@techcrunch.com,33
-5437890123,Jeffry,Skeats,jskeats6@huffpost.com,50
-2098765432,Lisabeth,Daunter,ldaunter7@yahoo.com,12
-4387654901,Harv,Kamena,hkamena8@nytimes.com,89
-1234567890,Meryl,Cockman,mcockman9@bbc.com,42
+card_number,first_name,last_name,email,membership_tier,points
+1234567890,John,Doe,johndoe@example.com,platinum,10
+9876543210,Jane,Smith,janesmith@example.com,gold,30
+1111222233,Alice,Johnson,alicejohnson@example.com,silver,15
+4444555566,Bob,Williams,bobwilliams@example.com,platinum,50
+7777888899,Eva,Anderson,evaanderson@example.com,silver,5

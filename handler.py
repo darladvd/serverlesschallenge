@@ -52,6 +52,7 @@ def create_loyalty_card(event, context):
                 "first_name": person.get("first_name"),
                 "last_name": person.get("last_name"),
                 "email": person.get("email"),
+                "membership_tier": person.get("membership_tier"),
                 "points": int(person.get("points", 0)),
             }
 
@@ -158,13 +159,14 @@ def prepare_sqs_job(event, context):
         message_attrs = {'AttributeName': {'StringValue': 'AttributeValue', 'DataType': 'String'}}
         for row in rows:
             print(row)
-
+            
             message_body = {
                 "card_number": row[0],
                 "first_name": row[1],
                 "last_name": row[2],
                 "email": row[3],
-                "points": int(row[4])
+                "membership_tier": row[4],
+                "points": int(row[5]) if row[5] else 0
             }
 
             try:
@@ -203,6 +205,7 @@ def process_sqs_job(event, context):
                 first_name = message_body.get('first_name')
                 last_name = message_body.get('last_name')
                 email = message_body.get('email')
+                membership_tier = message_body.get("membership_tier")
                 points = message_body.get('points')
 
                 # Check if the email already exists in the DynamoDB table
@@ -216,6 +219,7 @@ def process_sqs_job(event, context):
                     "first_name": first_name,
                     "last_name": last_name,
                     "email": email,
+                    "membership_tier": membership_tier,
                     "points": points
                 }
 
@@ -236,7 +240,6 @@ def process_sqs_job(event, context):
         response = {"statusCode": 500, "body": json.dumps({"status": "error", "message": str(e)})}
 
     return response
-
 
 def email_exists(table_name, email):
     # Check if the email already exists in the DynamoDB table using GSI
