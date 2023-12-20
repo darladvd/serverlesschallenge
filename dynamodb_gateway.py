@@ -16,9 +16,9 @@ class DynamodbGateway:
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(table_name)
 
-        for batch_entries in cls.batch_data(mapping_data, batch_size=100):
+        for batch_entries in cls.batch_data(mapping_data, batch_size=5):
             print("=====")
-            print("WRITING THIS BATCH in batches of 100")
+            print("WRITING THIS BATCH in batches of 5")
             print(batch_entries)
             print("=====")
 
@@ -33,7 +33,7 @@ class DynamodbGateway:
             yield data[i:i + batch_size]
 
     @classmethod
-    def scan_table(cls, table_name, page_size=100, last_evaluated_key=None):
+    def scan_table(cls, table_name, page_size=5, last_evaluated_key=None):
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(table_name)
         items = []
